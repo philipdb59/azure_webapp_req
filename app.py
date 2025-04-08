@@ -17,7 +17,7 @@ def chat_with_azure(message, history, file=None):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {AZURE_API_KEY}",
-        "Accept": "text/event-stream"
+        "Accept": "application/json"
     }
 
     # Convert chat history to the format Azure expects
