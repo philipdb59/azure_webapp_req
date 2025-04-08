@@ -1,3 +1,5 @@
 gradio
 matplotlib
 numpy
+requests
+json
