@@ -34,23 +34,12 @@ def chat_with_azure(message, history, file=None):
     }
     
     try:
-        response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload, stream=True)
-        complete_response = ""
-        
-        for line in response.iter_lines():
-            if line:
-                decoded_line = line.decode("utf-8")
-                complete_response += decoded_line
-                # Yield intermediate results for streaming
-                yield decoded_line
-        
-        # Important: Return the complete response at the end to ensure it's saved in history
-        return complete_response
-        
+        response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
+        response_data = response.json()
+        # Extract the chat_output field from the response
+        return response_data.get("chat_output", "No chat_output in response")
     except Exception as e:
-        error_message = f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
-        yield error_message
-        return error_message
+        return f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
 
 def handle_file(file):
     if file:
