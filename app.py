@@ -7,8 +7,8 @@ import requests
 import json
 
 # Azure endpoint configuration
-AZURE_ENDPOINT = "https://<your-endpoint>.inference.ml.azure.com/score"
-AZURE_API_KEY = "<your-api-key>"
+AZURE_ENDPOINT = "https://requirements-eng-poc-umjeo.swedencentral.inference.ml.azure.com/score"
+AZURE_API_KEY = "8KGZzrDuQzb7mmdkn76iwZLdZdgJP6pThpAJ3j2DccERvNH0xmqYJQQJ99BDAAAAAAAAAAAAINFRAZML2Z3S"
 
 # Use the port specified by the environment variable WEBSITE_PORT, default to 7860 if not set.
 port = int(os.environ.get("WEBSITE_PORT", 7860))
