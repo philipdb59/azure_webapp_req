@@ -1,6 +1,12 @@
 # Use an official Python 3.10 slim image
 FROM python:3.10-slim
 
+# Install Java (for Debian-based images)
+RUN apt-get update && apt-get install -y default-jre
+
+# Copy plantuml.jar into the container
+COPY plantuml.jar /app/plantuml.jar
+
 # Set the working directory
 WORKDIR /usr/src/app
 
