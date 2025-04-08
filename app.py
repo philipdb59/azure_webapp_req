@@ -19,7 +19,7 @@ def chat_with_azure(message, history, file=None):
         "Authorization": f"Bearer {AZURE_API_KEY}",
         "Accept": "application/json"
     }
-
+    
     # Convert chat history to the format Azure expects
     chat_history = []
     for user, bot in history:
@@ -27,21 +27,30 @@ def chat_with_azure(message, history, file=None):
             "inputs": {"question": user},
             "outputs": {"answer": bot}
         })
-
+    
     payload = {
         "chat_input": message,
         "chat_history": chat_history
     }
-
+    
     try:
         response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload, stream=True)
+        complete_response = ""
+        
         for line in response.iter_lines():
             if line:
                 decoded_line = line.decode("utf-8")
-                # Yield line for streaming
+                complete_response += decoded_line
+                # Yield intermediate results for streaming
                 yield decoded_line
+        
+        # Important: Return the complete response at the end to ensure it's saved in history
+        return complete_response
+        
     except Exception as e:
-        yield f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
+        error_message = f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
+        yield error_message
+        return error_message
 
 def handle_file(file):
     if file:
@@ -65,11 +74,11 @@ with gr.Blocks() as demo:
         flagging_options=["Like", "Spam", "Inappropriate", "Other"],
         save_history=True,
     )
-
+    
     with gr.Accordion("Upload a File", open=False):
         file_upload = gr.File(label="Upload a File")
-    plot_output = gr.Plot(label="Plot Output")
-
+        plot_output = gr.Plot(label="Plot Output")
+    
     clear = gr.Button("Clear")
     file_upload.change(handle_file, file_upload, chatbot, queue=False)
     clear.click(lambda: None, None, chatbot, queue=False)
