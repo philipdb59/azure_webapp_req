@@ -2,4 +2,3 @@ gradio
 matplotlib
 numpy
 requests
-logging
