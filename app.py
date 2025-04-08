@@ -29,7 +29,7 @@ def chat_with_azure(message, history, file=None):
         })
 
     payload = {
-        "question": message,
+        "chat_input": message,
         "chat_history": chat_history
     }
 
