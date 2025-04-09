@@ -5,6 +5,7 @@ import numpy as np
 import time
 import requests
 import json
+import pandas as pd
 
 # Azure endpoint configuration
 AZURE_ENDPOINT = os.environ.get("AZURE_ENDPOINT")
@@ -19,7 +20,7 @@ def chat_with_azure(message, history, file=None):
         "Authorization": f"Bearer {AZURE_API_KEY}",
         "Accept": "application/json"
     }
-
+    
     # Konvertiere Gradio-History zu Azure-kompatibler History
     chat_history = []
     for i in range(0, len(history), 2):
@@ -29,17 +30,25 @@ def chat_with_azure(message, history, file=None):
             "inputs": {"question": user_msg},
             "outputs": {"answer": bot_msg}
         })
-
+    
     payload = {
         "chat_input": message,
         "chat_history": chat_history
     }
-
+    
+    if file and file.name.endswith('.csv'):
+        try:
+            # Füge den CSV-Dateiinhalt als Teil der Nachrichten hinzu
+            df = pd.read_csv(file.name)
+            csv_content = df.to_string()
+            payload["chat_input"] = f"{message}\n\nCSV Content:\n{csv_content}"
+        except Exception as e:
+            return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
+    
     try:
         response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
         response.raise_for_status()
         result = response.json()
-
         # 🔽 Hier holen wir die Antwort aus 'chat_output'
         answer = result.get("chat_output", "⚠️ Keine Antwort erhalten.")
         return answer
@@ -48,7 +57,10 @@ def chat_with_azure(message, history, file=None):
 
 def handle_file(file):
     if file:
-        return f"File {file.name} uploaded successfully."
+        if file.name.endswith('.csv'):
+            return f"CSV-Datei {file.name} erfolgreich hochgeladen."
+        else:
+            return f"❌ Nur CSV-Dateien (.csv) werden unterstützt."
     return ""
 
 def generate_plot(message):
@@ -68,12 +80,13 @@ with gr.Blocks() as demo:
         flagging_options=["Like", "Spam", "Inappropriate", "Other"],
         save_history=True,
     )
-
+    
     with gr.Accordion("Upload a File", open=False):
-        file_upload = gr.File(label="Upload a File")
+        file_upload = gr.File(label="Upload a CSV File", file_types=[".csv"])
+    
     plot_output = gr.Plot(label="Plot Output")
-
     clear = gr.Button("Clear")
+    
     file_upload.change(handle_file, file_upload, chatbot, queue=False)
     clear.click(lambda: None, None, chatbot, queue=False)
     clear.click(lambda: None, None, plot_output, queue=False)
