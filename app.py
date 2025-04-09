@@ -20,7 +20,7 @@ def chat_with_azure(message, history, file=None):
         "Authorization": f"Bearer {AZURE_API_KEY}",
         "Accept": "application/json"
     }
-    
+
     # Konvertiere Gradio-History zu Azure-kompatibler History
     chat_history = []
     for i in range(0, len(history), 2):
@@ -30,28 +30,33 @@ def chat_with_azure(message, history, file=None):
             "inputs": {"question": user_msg},
             "outputs": {"answer": bot_msg}
         })
-    
+
+    # Füge CSV-Inhalt als separaten History-Eintrag hinzu
+    if file and file.name.endswith('.csv'):
+        try:
+            df = pd.read_csv(file.name)
+            csv_preview = df.head().to_string(index=False)
+            header_info = ", ".join(df.columns)
+            csv_text = f"Die hochgeladene CSV-Datei enthält folgende Spalten: {header_info}\nVorschau der Daten:\n{csv_preview}"
+
+            # Füge CSV als extra User-Eintrag in den Chatverlauf
+            chat_history.append({
+                "inputs": {"question": csv_text},
+                "outputs": {"answer": "CSV-Datei-Inhalt empfangen."}
+            })
+        except Exception as e:
+            return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
+
     payload = {
         "chat_input": message,
         "chat_history": chat_history
     }
-    
-    if file and file.name.endswith('.csv'):
-        try:
-            # Füge den CSV-Dateiinhalt als Teil der Nachrichten hinzu
-            df = pd.read_csv(file.name)
-            csv_content = df.to_string()
-            payload["chat_input"] = f"{message}\n\nCSV Content:\n{csv_content}"
-        except Exception as e:
-            return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
-    
+
     try:
         response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
         response.raise_for_status()
         result = response.json()
-        # 🔽 Hier holen wir die Antwort aus 'chat_output'
-        answer = result.get("chat_output", "⚠️ Keine Antwort erhalten.")
-        return answer
+        return result.get("chat_output", "⚠️ Keine Antwort erhalten.")
     except Exception as e:
         return f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
 
@@ -71,7 +76,7 @@ def generate_plot(message):
     ax.set_title("Plot based on message length")
     return fig
 
-# Create the chat interface with additional inputs for file upload
+# GUI
 with gr.Blocks() as demo:
     chatbot = gr.ChatInterface(
         chat_with_azure,
@@ -80,13 +85,13 @@ with gr.Blocks() as demo:
         flagging_options=["Like", "Spam", "Inappropriate", "Other"],
         save_history=True,
     )
-    
+
     with gr.Accordion("Upload a File", open=False):
         file_upload = gr.File(label="Upload a CSV File", file_types=[".csv"])
-    
+
     plot_output = gr.Plot(label="Plot Output")
     clear = gr.Button("Clear")
-    
+
     file_upload.change(handle_file, file_upload, chatbot, queue=False)
     clear.click(lambda: None, None, chatbot, queue=False)
     clear.click(lambda: None, None, plot_output, queue=False)
