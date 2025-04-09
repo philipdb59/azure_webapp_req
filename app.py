@@ -21,28 +21,28 @@ def chat_with_azure(message, history, file=None):
         "Accept": "application/json"
     }
 
-    # Konvertiere Gradio-History zu Azure-kompatibler History
+    # Konvertiere Gradio-History in das vom Flow erwartete Format
     chat_history = []
     for i in range(0, len(history), 2):
         user_msg = history[i]["content"] if history[i]["role"] == "user" else ""
-        bot_msg = history[i+1]["content"] if i+1 < len(history) and history[i+1]["role"] == "assistant" else ""
-        chat_history.append({
-            "inputs": {"question": user_msg},
-            "outputs": {"answer": bot_msg}
-        })
+        bot_msg = history[i + 1]["content"] if i + 1 < len(history) and history[i + 1]["role"] == "assistant" else ""
+        if user_msg.strip() and bot_msg.strip():
+            chat_history.append({
+                "inputs": {"question": user_msg},
+                "outputs": {"answer": bot_msg}
+            })
 
-    # Füge CSV-Inhalt als separaten History-Eintrag hinzu
-    if file and file.name.endswith('.csv'):
+    # Wenn CSV hochgeladen wurde, ergänze es als eigenen Eintrag im Verlauf
+    if file and file.name.endswith(".csv"):
         try:
             df = pd.read_csv(file.name)
-            csv_preview = df.head().to_string(index=False)
             header_info = ", ".join(df.columns)
-            csv_text = f"Die hochgeladene CSV-Datei enthält folgende Spalten: {header_info}\nVorschau der Daten:\n{csv_preview}"
+            preview = df.head().to_string(index=False)
+            csv_text = f"Hier ist eine hochgeladene CSV-Datei:\nSpalten: {header_info}\nVorschau:\n{preview}"
 
-            # Füge CSV als extra User-Eintrag in den Chatverlauf
             chat_history.append({
                 "inputs": {"question": csv_text},
-                "outputs": {"answer": "CSV-Datei-Inhalt empfangen."}
+                "outputs": {"answer": "Danke für die CSV-Datei! Ich habe sie erhalten."}
             })
         except Exception as e:
             return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
@@ -53,10 +53,17 @@ def chat_with_azure(message, history, file=None):
     }
 
     try:
+        print("\n📤 Sende Payload an Azure:")
+        import pprint
+        pprint.pprint(payload)
+
         response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
         response.raise_for_status()
-        result = response.json()
-        return result.get("chat_output", "⚠️ Keine Antwort erhalten.")
+
+        print("\n✅ Antwort von Azure:")
+        pprint.pprint(response.json())
+
+        return response.json().get("chat_output", "⚠️ Keine Antwort erhalten.")
     except Exception as e:
         return f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
 
