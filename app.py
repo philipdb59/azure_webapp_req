@@ -35,25 +35,34 @@ def chat_with_azure(message, history, file=None):
     # Falls CSV hochgeladen wurde, ergänze den Input-Text
     if file and file.name.endswith('.csv'):
         try:
-            df = pd.read_csv(file.name)
+            # Lade die CSV-Datei direkt aus dem File-Objekt
+            df = pd.read_csv(file)
             header_info = ", ".join(df.columns)
             preview = df.head().to_string(index=False)
             csv_text = f"\n\n[CSV-Daten hochgeladen]\nSpalten: {header_info}\nVorschau:\n{preview}"
-            message += csv_text
+            
+            # Füge den CSV-Inhalt zu der Nachricht hinzu
+            message = f"{message.strip()}\n{csv_text}"
         except Exception as e:
             return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
 
+    # Debug-Ausgabe für den chat_input
+    print("Gesendeter chat_input:", message)
+
+    # Aufbau des Payloads
     payload = {
         "chat_input": message,
         "chat_history": chat_history
     }
 
     try:
+        # Anfrage an das Azure-Endpunkt
         response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
         response.raise_for_status()
         return response.json().get("chat_output", "⚠️ Keine Antwort erhalten.")
     except Exception as e:
         return f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
+
 
 def handle_file(file):
     if file:
