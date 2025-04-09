@@ -32,17 +32,18 @@ def chat_with_azure(message, history, file=None):
                 "outputs": {"answer": bot_msg}
             })
 
-    # Falls CSV hochgeladen wurde, ergänze den Input-Text
+    # Falls eine Datei übergeben wurde, ergänze den Input-Text
     if file and file.name.endswith('.csv'):
         try:
-            # Lade die CSV-Datei direkt aus dem File-Objekt
+            # Lade die CSV-Datei nur bei tatsächlichem Absenden der Nachricht
             df = pd.read_csv(file)
             header_info = ", ".join(df.columns)
             preview = df.head().to_string(index=False)
             csv_text = f"\n\n[CSV-Daten hochgeladen]\nSpalten: {header_info}\nVorschau:\n{preview}"
-            
+
             # Füge den CSV-Inhalt zu der Nachricht hinzu
             message = f"{message.strip()}\n{csv_text}"
+
         except Exception as e:
             return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
 
@@ -51,8 +52,8 @@ def chat_with_azure(message, history, file=None):
 
     # Aufbau des Payloads
     payload = {
-        "chat_input": message,
-        "chat_history": chat_history
+        "chat_input": message,  # Hier wird der gesamte Chat-Input (Text + CSV-Inhalt) gesendet
+        "chat_history": chat_history  # Die History bleibt unverändert
     }
 
     try:
