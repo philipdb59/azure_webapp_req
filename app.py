@@ -32,18 +32,14 @@ def chat_with_azure(message, history, file=None):
                 "outputs": {"answer": bot_msg}
             })
 
-    # Wenn CSV hochgeladen wurde, ergänze es als eigenen Eintrag im Verlauf
-    if file and file.name.endswith(".csv"):
+    # Falls CSV hochgeladen wurde, ergänze den Input-Text
+    if file and file.name.endswith('.csv'):
         try:
             df = pd.read_csv(file.name)
             header_info = ", ".join(df.columns)
             preview = df.head().to_string(index=False)
-            csv_text = f"Hier ist eine hochgeladene CSV-Datei:\nSpalten: {header_info}\nVorschau:\n{preview}"
-
-            chat_history.append({
-                "inputs": {"question": csv_text},
-                "outputs": {"answer": "Danke für die CSV-Datei! Ich habe sie erhalten."}
-            })
+            csv_text = f"\n\n[CSV-Daten hochgeladen]\nSpalten: {header_info}\nVorschau:\n{preview}"
+            message += csv_text
         except Exception as e:
             return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
 
@@ -53,16 +49,8 @@ def chat_with_azure(message, history, file=None):
     }
 
     try:
-        print("\n📤 Sende Payload an Azure:")
-        import pprint
-        pprint.pprint(payload)
-
         response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
         response.raise_for_status()
-
-        print("\n✅ Antwort von Azure:")
-        pprint.pprint(response.json())
-
         return response.json().get("chat_output", "⚠️ Keine Antwort erhalten.")
     except Exception as e:
         return f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
