@@ -10,14 +10,16 @@ import json
 AZURE_ENDPOINT = os.environ.get("AZURE_ENDPOINT")
 AZURE_API_KEY = os.environ.get("AZURE_API_KEY")
 
-# Use the port specified by the environment variable WEBSITE_PORT, default to 7860 if not set.
 port = int(os.environ.get("WEBSITE_PORT", 7860))
 
-# Globale Variable zum Zwischenspeichern des hochgeladenen Files
+# Globale Variablen
 uploaded_file = None
+csv_context_sent = False
+csv_system_message = None
 
-def chat_with_azure(message, history, simulate_mode):
-    global uploaded_file
+def chat_with_azure(message, history):
+    global csv_context_sent
+    global csv_system_message
 
     headers = {
         "Content-Type": "application/json",
@@ -27,38 +29,31 @@ def chat_with_azure(message, history, simulate_mode):
 
     # Konvertiere Gradio-History in das vom Flow erwartete Format
     chat_history = []
+    # Wenn CSV noch nicht gesendet wurde, füge als System-Message hinzu
+    if not csv_context_sent and csv_system_message:
+        chat_history.append({
+            "inputs": {"question": csv_system_message},
+            "outputs": {"answer": ""}
+        })
+        csv_context_sent = True  # Nicht erneut senden
+
+    # Bestehende Unterhaltung konvertieren
     for i in range(0, len(history), 2):
         user_msg = history[i]["content"] if history[i]["role"] == "user" else ""
         bot_msg = history[i + 1]["content"] if i + 1 < len(history) and history[i + 1]["role"] == "assistant" else ""
-        if user_msg.strip() and bot_msg.strip():
+        if user_msg.strip() or bot_msg.strip():
             chat_history.append({
                 "inputs": {"question": user_msg},
                 "outputs": {"answer": bot_msg}
             })
 
-    # Falls eine Datei übergeben wurde, ergänze den Input-Text
-    if uploaded_file and uploaded_file.name.endswith('.csv'):
-        try:
-            df = pd.read_csv(uploaded_file)
-            header_info = ", ".join(df.columns)
-            preview = df.head().to_string(index=False)
-            csv_text = f"\n\n[CSV-Daten hochgeladen]\nSpalten: {header_info}\nVorschau:\n{preview}"
-            message = f"{message.strip()}\n{csv_text}"
-        except Exception as e:
-            return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
-
-    # Payload zusammenbauen
     payload = {
-        "chat_input": message,
+        "chat_input": message,      # Nur die neue Nachricht
         "chat_history": chat_history
     }
 
     print("📤 Gesendeter Payload:")
     print(json.dumps(payload, indent=2, ensure_ascii=False))
-
-    # Entweder simulieren oder echt senden
-    if simulate_mode:
-        return f"🧪 **Simulierter Azure-Call:**\n```json\n{json.dumps(payload, indent=2, ensure_ascii=False)}\n```"
 
     try:
         response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
@@ -68,14 +63,25 @@ def chat_with_azure(message, history, simulate_mode):
         return f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
 
 def handle_file(file):
-    global uploaded_file
+    global uploaded_file, csv_context_sent, csv_system_message
     uploaded_file = file
-    if file:
-        if file.name.endswith('.csv'):
+    csv_context_sent = False
+    csv_system_message = None
+
+    if file and file.name.endswith('.csv'):
+        try:
+            df = pd.read_csv(file)
+            header_info = ", ".join(df.columns)
+            preview = df.head().to_string(index=False)
+            csv_system_message = (
+                f"[CSV-Daten wurden hochgeladen.]\n"
+                f"Spalten: {header_info}\n"
+                f"Vorschau:\n{preview}"
+            )
             return f"✅ CSV-Datei **{file.name}** erfolgreich hochgeladen."
-        else:
-            return f"❌ Nur CSV-Dateien (.csv) werden unterstützt."
-    return "📂 Keine Datei hochgeladen."
+        except Exception as e:
+            return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
+    return "❌ Ungültige Datei. Nur .csv erlaubt."
 
 def generate_plot(message):
     x = np.linspace(0, 10, 100)
@@ -87,16 +93,10 @@ def generate_plot(message):
 
 # GUI
 with gr.Blocks() as demo:
-    gr.Markdown("## 💬 Chat mit Azure + Datei-Upload")
-
-    simulate_toggle = gr.Checkbox(label="🧪 Simulationsmodus (kein echter API-Call)", value=False)
-
-    # Wrapper-Funktion für ChatInterface mit Zugriff auf Checkbox-Zustand
-    def chat_wrapper(message, history):
-        return chat_with_azure(message, history, simulate_toggle.value)
+    gr.Markdown("## 💬 Chat mit Azure + CSV-Datenintegration")
 
     chatbot = gr.ChatInterface(
-        chat_wrapper,
+        chat_with_azure,
         type="messages",
         flagging_mode="manual",
         flagging_options=["Like", "Spam", "Inappropriate", "Other"],
