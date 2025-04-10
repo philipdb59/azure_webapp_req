@@ -2,10 +2,9 @@ import gradio as gr
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-import time
+import pandas as pd
 import requests
 import json
-import pandas as pd
 
 # Azure endpoint configuration
 AZURE_ENDPOINT = os.environ.get("AZURE_ENDPOINT")
@@ -14,7 +13,12 @@ AZURE_API_KEY = os.environ.get("AZURE_API_KEY")
 # Use the port specified by the environment variable WEBSITE_PORT, default to 7860 if not set.
 port = int(os.environ.get("WEBSITE_PORT", 7860))
 
-def chat_with_azure(message, history, file=None):
+# Globale Variable zum Zwischenspeichern des hochgeladenen Files
+uploaded_file = None
+
+def chat_with_azure(message, history, simulate_mode=False):
+    global uploaded_file
+
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {AZURE_API_KEY}",
@@ -33,45 +37,44 @@ def chat_with_azure(message, history, file=None):
             })
 
     # Falls eine Datei übergeben wurde, ergänze den Input-Text
-    if file and file.name.endswith('.csv'):
+    if uploaded_file and uploaded_file.name.endswith('.csv'):
         try:
-            # Lade die CSV-Datei nur bei tatsächlichem Absenden der Nachricht
-            df = pd.read_csv(file)
+            df = pd.read_csv(uploaded_file)
             header_info = ", ".join(df.columns)
             preview = df.head().to_string(index=False)
             csv_text = f"\n\n[CSV-Daten hochgeladen]\nSpalten: {header_info}\nVorschau:\n{preview}"
-
-            # Füge den CSV-Inhalt zu der Nachricht hinzu
             message = f"{message.strip()}\n{csv_text}"
-
         except Exception as e:
             return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
 
-    # Debug-Ausgabe für den chat_input
-    print("Gesendeter chat_input:", message)
-
-    # Aufbau des Payloads
+    # Debug-Ausgabe für den vollständigen Payload
     payload = {
-        "chat_input": message,  # Hier wird der gesamte Chat-Input (Text + CSV-Inhalt) gesendet
-        "chat_history": chat_history  # Die History bleibt unverändert
+        "chat_input": message,
+        "chat_history": chat_history
     }
 
+    print("📤 Gesendeter Payload:")
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+    if simulate_mode:
+        return f"🧪 **Simulierter Azure-Call:**\n```json\n{json.dumps(payload, indent=2, ensure_ascii=False)}\n```"
+
     try:
-        # Anfrage an das Azure-Endpunkt
         response = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
         response.raise_for_status()
         return response.json().get("chat_output", "⚠️ Keine Antwort erhalten.")
     except Exception as e:
         return f"❌ Fehler beim Aufruf des Azure-Endpoints: {str(e)}"
 
-
 def handle_file(file):
+    global uploaded_file
+    uploaded_file = file
     if file:
         if file.name.endswith('.csv'):
-            return f"CSV-Datei {file.name} erfolgreich hochgeladen."
+            return f"✅ CSV-Datei **{file.name}** erfolgreich hochgeladen."
         else:
             return f"❌ Nur CSV-Dateien (.csv) werden unterstützt."
-    return ""
+    return "📂 Keine Datei hochgeladen."
 
 def generate_plot(message):
     x = np.linspace(0, 10, 100)
@@ -83,22 +86,30 @@ def generate_plot(message):
 
 # GUI
 with gr.Blocks() as demo:
+    gr.Markdown("## 💬 Chat mit Azure + Datei-Upload")
+
+    with gr.Row():
+        simulate_toggle = gr.Checkbox(label="Simulationsmodus (kein echter API-Call)", value=True)
+
     chatbot = gr.ChatInterface(
-        chat_with_azure,
+        lambda message, history: chat_with_azure(message, history, simulate_toggle.value),
         type="messages",
         flagging_mode="manual",
         flagging_options=["Like", "Spam", "Inappropriate", "Other"],
         save_history=True,
     )
 
-    with gr.Accordion("Upload a File", open=False):
+    with gr.Accordion("📎 Datei hochladen", open=False):
         file_upload = gr.File(label="Upload a CSV File", file_types=[".csv"])
+        upload_status = gr.Textbox(label="Status", interactive=False)
 
     plot_output = gr.Plot(label="Plot Output")
-    clear = gr.Button("Clear")
+    clear = gr.Button("❌ Alles zurücksetzen")
 
-    file_upload.change(handle_file, file_upload, chatbot, queue=False)
+    # Event Handler
+    file_upload.change(handle_file, file_upload, upload_status, queue=False)
     clear.click(lambda: None, None, chatbot, queue=False)
     clear.click(lambda: None, None, plot_output, queue=False)
+    clear.click(lambda: "", None, upload_status, queue=False)
 
 demo.launch(server_name="0.0.0.0", server_port=port)
