@@ -41,7 +41,7 @@ def chat_with_azure(message, history, simulate_mode):
         try:
             df = pd.read_csv(uploaded_file)
             header_info = ", ".join(df.columns)
-            preview = df.head().to_string(index=False)
+            preview = df.to_string(index=False)
             csv_text = f"\n\n[CSV-Daten hochgeladen]\nSpalten: {header_info}\nVorschau:\n{preview}"
             message = f"{message.strip()}\n{csv_text}"
         except Exception as e:
