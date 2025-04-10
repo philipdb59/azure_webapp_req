@@ -16,7 +16,7 @@ port = int(os.environ.get("WEBSITE_PORT", 7860))
 # Globale Variable zum Zwischenspeichern des hochgeladenen Files
 uploaded_file = None
 
-def chat_with_azure(message, history, simulate_mode=False):
+def chat_with_azure(message, history, simulate_mode):
     global uploaded_file
 
     headers = {
@@ -47,7 +47,7 @@ def chat_with_azure(message, history, simulate_mode=False):
         except Exception as e:
             return f"❌ Fehler beim Lesen der CSV-Datei: {str(e)}"
 
-    # Debug-Ausgabe für den vollständigen Payload
+    # Payload zusammenbauen
     payload = {
         "chat_input": message,
         "chat_history": chat_history
@@ -56,6 +56,7 @@ def chat_with_azure(message, history, simulate_mode=False):
     print("📤 Gesendeter Payload:")
     print(json.dumps(payload, indent=2, ensure_ascii=False))
 
+    # Entweder simulieren oder echt senden
     if simulate_mode:
         return f"🧪 **Simulierter Azure-Call:**\n```json\n{json.dumps(payload, indent=2, ensure_ascii=False)}\n```"
 
@@ -88,11 +89,14 @@ def generate_plot(message):
 with gr.Blocks() as demo:
     gr.Markdown("## 💬 Chat mit Azure + Datei-Upload")
 
-    with gr.Row():
-        simulate_toggle = gr.Checkbox(label="Simulationsmodus (kein echter API-Call)", value=True)
+    simulate_toggle = gr.Checkbox(label="🧪 Simulationsmodus (kein echter API-Call)", value=False)
+
+    # Wrapper-Funktion für ChatInterface mit Zugriff auf Checkbox-Zustand
+    def chat_wrapper(message, history):
+        return chat_with_azure(message, history, simulate_toggle.value)
 
     chatbot = gr.ChatInterface(
-        lambda message, history: chat_with_azure(message, history, simulate_toggle.value),
+        chat_wrapper,
         type="messages",
         flagging_mode="manual",
         flagging_options=["Like", "Spam", "Inappropriate", "Other"],
