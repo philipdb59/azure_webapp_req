@@ -77,14 +77,6 @@ def handle_file(file):
             return f"❌ Nur CSV-Dateien (.csv) werden unterstützt."
     return "📂 Keine Datei hochgeladen."
 
-def generate_plot(message):
-    x = np.linspace(0, 10, 100)
-    y = np.sin(x) * len(message)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set_title("Plot based on message length")
-    return fig
-
 # GUI
 with gr.Blocks(css="""
     .blue-textbox textarea {
