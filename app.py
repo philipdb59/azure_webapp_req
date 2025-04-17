@@ -86,7 +86,12 @@ def generate_plot(message):
     return fig
 
 # GUI
-with gr.Blocks() as demo:
+with gr.Blocks(css="""
+    .blue-textbox textarea {
+        background-color: #e0f0ff !important;  /* hellblauer Hintergrund */
+        color: #000000 !important;             /* schwarzer Text */
+    }
+""") as demo:
     gr.Markdown("## 💬 Chat mit Azure + Datei-Upload")
 
     simulate_toggle = gr.Checkbox(label="🧪 Simulationsmodus (kein echter API-Call)", value=False)
@@ -105,9 +110,8 @@ with gr.Blocks() as demo:
 
     with gr.Accordion("📎 Datei hochladen", open=False):
         file_upload = gr.File(label="Upload a CSV File", file_types=[".csv"])
-        upload_status = gr.Textbox(label="Status", interactive=False)
+        upload_status = gr.Textbox(label="Status", interactive=False, elem_classes="blue-textbox")
 
-    plot_output = gr.Plot(label="Plot Output")
     clear = gr.Button("❌ Alles zurücksetzen")
 
     # Event Handler
@@ -115,5 +119,6 @@ with gr.Blocks() as demo:
     clear.click(lambda: None, None, chatbot, queue=False)
     clear.click(lambda: None, None, plot_output, queue=False)
     clear.click(lambda: "", None, upload_status, queue=False)
+
 
 demo.launch(server_name="0.0.0.0", server_port=port)
