@@ -109,7 +109,6 @@ with gr.Blocks(css="""
     # Event Handler
     file_upload.change(handle_file, file_upload, upload_status, queue=False)
     clear.click(lambda: None, None, chatbot, queue=False)
-    clear.click(lambda: None, None, plot_output, queue=False)
     clear.click(lambda: "", None, upload_status, queue=False)
 
 
